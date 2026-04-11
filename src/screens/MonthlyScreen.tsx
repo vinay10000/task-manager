@@ -15,6 +15,14 @@ export function MonthlyScreen({ navigation }: any) {
 
   const uniqueTasks = useMemo(() => tasks.filter((task, index, self) => index === self.findIndex((t) => t.id === task.id)), [tasks]);
 
+  const visibleCategories = useMemo(
+    () =>
+      categories.filter(
+        (c) => c.systemType !== 'uncategorized' || tasks.some((t) => t.categoryId === c.id)
+      ),
+    [categories, tasks]
+  );
+
   const monthDays = useMemo(
     () => eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) }),
     [currentMonth]
@@ -69,7 +77,7 @@ export function MonthlyScreen({ navigation }: any) {
         <Text style={styles.filterLabel}>Filter:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           <FilterChip label="All" active={categoryId === 'all'} accentColor={settings.accentColor} onPress={() => setCategoryId('all')} />
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <FilterChip
               key={category.id}
               label={category.name}

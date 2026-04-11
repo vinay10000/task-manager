@@ -31,6 +31,9 @@ import {
   nextSortOrder,
   normalizeTags,
   normalizeTitle,
+  reconcilePersistedOnResume,
+  reindexTasksAfterCustomReorder,
+  skipRecurrenceAnchorIso,
   upsertActivityLog,
 } from '../utils/tasks';
 
@@ -109,8 +112,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       await setupNotificationChannel();
 
-      setData(loadedData);
-      setWarnings(loadedWarnings);
+      const { next, missedLine } = reconcilePersistedOnResume(loadedData);
+      const mergedWarnings = missedLine ? dedupeWarnings([...loadedWarnings, missedLine]) : loadedWarnings;
+
+      setData(next);
+      setWarnings(mergedWarnings);
       setNotificationGranted(await getNotificationPermissionGranted());
       setHydrated(true);
     });
@@ -140,55 +146,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const timezone = getTimezone();
       setNotificationGranted(await getNotificationPermissionGranted());
 
-      setData((current) =>
-        current.settings.timezone === timezone
-          ? current
-          : {
-              ...current,
-              settings: {
-                ...current.settings,
-                timezone,
-              },
-              tasks: current.tasks.map((task) => ({
-                ...task,
-                reminderTime: task.hasReminder
-                  ? computeReminderTime(task.dueDate, task.dueTime, task.reminderOffset)
-                  : null,
-              })),
-            }
-      );
-
-      const now = new Date().toISOString();
-      const missed = data.tasks.filter(
-        (task) =>
-          !task.completed &&
-          task.hasReminder &&
-          task.reminderTime &&
-          task.reminderTime < now &&
-          !task.reminderFired
-      );
-
-      if (missed.length > 0) {
-        setWarnings((current) => [
-          `You have ${missed.length} missed reminder${missed.length > 1 ? 's' : ''}.`,
-          ...current.filter((warning) => !warning.includes('missed reminder')),
-        ]);
-        setData((current) => ({
-          ...current,
-          tasks: current.tasks.map((task) =>
-            missed.some((item) => item.id === task.id) ? { ...task, reminderFired: true } : task
-          ),
-        }));
-      }
+      setData((current) => {
+        const { next, missedLine } = reconcilePersistedOnResume(current);
+        if (missedLine) {
+          queueMicrotask(() =>
+            setWarnings((w) =>
+              dedupeWarnings([missedLine, ...w.filter((warning) => !warning.includes('missed reminder'))])
+            )
+          );
+        }
+        return next;
+      });
     });
 
     return () => {
       subscription.remove();
     };
-  }, [data.tasks, hydrated]);
+  }, [hydrated]);
 
   const finishOnboarding = (accentValue: string) => {
     const accent = ACCENT_OPTIONS.find((option) => option.value === accentValue) ?? ACCENT_OPTIONS[0];
@@ -517,7 +493,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       return {
         ...current,
-        tasks: [...remaining, createInstanceFromSeries(series, computeNextDueDate(series, new Date().toISOString()), nextSortOrder(remaining))],
+        tasks: [
+          ...remaining,
+          createInstanceFromSeries(
+            series,
+            computeNextDueDate(series, skipRecurrenceAnchorIso(target)),
+            nextSortOrder(remaining)
+          ),
+        ],
       };
     });
   };
@@ -586,19 +569,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const reorderTaskInstances = (orderedIds: string[]) => {
-    setData((current) => {
-      const orderedTasks = orderedIds
-        .map((id, index) => {
-          const task = current.tasks.find((item) => item.id === id);
-          return task ? { ...task, sortOrder: index } : null;
-        })
-        .filter(Boolean) as TaskInstance[];
-      const untouched = current.tasks.filter((task) => !orderedIds.includes(task.id));
-      return {
-        ...current,
-        tasks: [...orderedTasks, ...untouched],
-      };
-    });
+    setData((current) => ({
+      ...current,
+      tasks: reindexTasksAfterCustomReorder(current.tasks, orderedIds),
+    }));
   };
 
   const reorderSubtasks = (taskId: string, orderedIds: string[]) => {

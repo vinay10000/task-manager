@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { format } from 'date-fns';
 
@@ -12,6 +12,13 @@ export function WeeklyScreen({ navigation }: any) {
   const { tasks, categories, settings, deleteTask, toggleSubtask } = useAppState();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [categoryId, setCategoryId] = useState('all');
+  const visibleCategories = useMemo(
+    () =>
+      categories.filter(
+        (c) => c.systemType !== 'uncategorized' || tasks.some((t) => t.categoryId === c.id)
+      ),
+    [categories, tasks]
+  );
   const dates = getWeeklyDates(new Date());
   const selectedTasks = sortTasks(
     tasks.filter(
@@ -49,7 +56,7 @@ export function WeeklyScreen({ navigation }: any) {
         <Text style={styles.filterLabel}>Filter:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterStrip}>
           <CategoryChip label="All" active={categoryId === 'all'} accentColor={settings.accentColor} onPress={() => setCategoryId('all')} />
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <CategoryChip
               key={category.id}
               label={category.name}

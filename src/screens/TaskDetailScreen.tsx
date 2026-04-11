@@ -1,5 +1,7 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLayoutEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
 import { BaseScreen } from '../components/BaseScreen';
@@ -10,9 +12,29 @@ import { formatDateTimeLabel } from '../utils/tasks';
 
 export function TaskDetailScreen({ route, navigation }: any) {
   const { taskId } = route.params;
+  const [menuOpen, setMenuOpen] = useState(false);
   const { tasks, categories, settings, completeTask, toggleSubtask, reorderSubtasks, deleteTask, snoozeTask } =
     useAppState();
   const task = tasks.find((item) => item.id === taskId);
+
+  useLayoutEffect(() => {
+    if (!task) {
+      navigation.setOptions({ headerRight: undefined });
+      return;
+    }
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => setMenuOpen(true)}
+          hitSlop={12}
+          style={styles.headerOverflow}
+          accessibilityLabel="Task actions"
+        >
+          <MaterialCommunityIcons name="dots-vertical" size={24} color={COLORS.textPrimary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, task]);
 
   if (!task) {
     return (
@@ -27,8 +49,74 @@ export function TaskDetailScreen({ route, navigation }: any) {
     ? tasks.filter((item) => item.seriesId === task.seriesId).flatMap((item) => item.activityLog)
     : task.activityLog;
 
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <BaseScreen scroll contentContainerStyle={styles.content}>
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={closeMenu}>
+        <View style={styles.menuOverlay}>
+          <Pressable style={styles.menuBackdrop} onPress={closeMenu} accessibilityLabel="Close menu" />
+          <View style={styles.menuSheet}>
+            <Text style={styles.menuTitle}>Actions</Text>
+            <MenuRow
+              label="Edit this task"
+              onPress={() => {
+                closeMenu();
+                navigation.navigate('TaskEditor', { taskId: task.id });
+              }}
+            />
+            {task.seriesId ? (
+              <MenuRow
+                label="Edit this and future tasks"
+                onPress={() => {
+                  closeMenu();
+                  navigation.navigate('TaskEditor', { taskId: task.id, scope: 'future' });
+                }}
+              />
+            ) : null}
+            <MenuRow
+              label="Activity heatmap"
+              onPress={() => {
+                closeMenu();
+                navigation.navigate('ActivityHeatmap', { taskId: task.id });
+              }}
+            />
+            {task.hasReminder && !task.completed ? (
+              <MenuRow
+                label="Snooze 10 minutes"
+                onPress={() => {
+                  closeMenu();
+                  snoozeTask(task.id);
+                }}
+              />
+            ) : null}
+            <MenuRow
+              label={task.seriesId ? 'Delete this task' : 'Delete task'}
+              danger
+              onPress={() => {
+                closeMenu();
+                deleteTask(task.id);
+                navigation.goBack();
+              }}
+            />
+            {task.seriesId ? (
+              <MenuRow
+                label="Delete this and future tasks"
+                danger
+                onPress={() => {
+                  closeMenu();
+                  deleteTask(task.id, 'future');
+                  navigation.goBack();
+                }}
+              />
+            ) : null}
+            <Pressable style={styles.menuCancel} onPress={closeMenu}>
+              <Text style={styles.menuCancelLabel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.hero}>
         <Pressable
           style={[styles.heroCheck, task.completed && { backgroundColor: settings.accentColor, borderColor: settings.accentColor }]}
@@ -75,66 +163,25 @@ export function TaskDetailScreen({ route, navigation }: any) {
         <Text style={styles.sectionTitle}>Activity Preview</Text>
         <Heatmap accentColor={settings.accentColor} activityLog={previewActivity} />
       </View>
-
-      <View style={styles.actions}>
-        <Pressable
-          style={[styles.actionButton, { borderColor: settings.accentColor }]}
-          onPress={() => navigation.navigate('TaskEditor', { taskId: task.id })}
-        >
-          <Text style={[styles.actionLabel, { color: settings.accentColor }]}>Edit</Text>
-        </Pressable>
-        {task.seriesId ? (
-          <Pressable
-            style={[styles.actionButton, { borderColor: settings.accentColor }]}
-            onPress={() => navigation.navigate('TaskEditor', { taskId: task.id, scope: 'future' })}
-          >
-            <Text style={[styles.actionLabel, { color: settings.accentColor }]}>Edit Future</Text>
-          </Pressable>
-        ) : null}
-        <Pressable
-          style={[styles.actionButton, { borderColor: COLORS.border }]}
-          onPress={() => navigation.navigate('ActivityHeatmap', { taskId: task.id })}
-        >
-          <Text style={styles.actionLabel}>Activity</Text>
-        </Pressable>
-        {task.hasReminder && !task.completed ? (
-          <Pressable style={[styles.actionButton, { borderColor: settings.accentColor }]} onPress={() => snoozeTask(task.id)}>
-            <Text style={[styles.actionLabel, { color: settings.accentColor }]}>Snooze 10m</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={styles.actions}>
-        <Pressable
-          style={[styles.actionButton, { borderColor: COLORS.destructive }]}
-          onPress={() => {
-            deleteTask(task.id);
-            navigation.goBack();
-          }}
-        >
-          <Text style={[styles.actionLabel, { color: COLORS.destructive }]}>
-            {task.seriesId ? 'Delete / Skip' : 'Delete'}
-          </Text>
-        </Pressable>
-        {task.seriesId ? (
-          <Pressable
-            style={[styles.actionButton, { borderColor: COLORS.destructive }]}
-            onPress={() => {
-              deleteTask(task.id, 'future');
-              navigation.goBack();
-            }}
-          >
-            <Text style={[styles.actionLabel, { color: COLORS.destructive }]}>Delete Future</Text>
-          </Pressable>
-        ) : null}
-      </View>
     </BaseScreen>
+  );
+}
+
+function MenuRow({ label, onPress, danger }: { label: string; onPress: () => void; danger?: boolean }) {
+  return (
+    <Pressable style={styles.menuRow} onPress={onPress}>
+      <Text style={[styles.menuRowLabel, danger && styles.menuRowDanger]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
     paddingBottom: 40,
+  },
+  headerOverflow: {
+    marginRight: 4,
+    padding: 8,
   },
   empty: {
     color: COLORS.textSecondary,
@@ -208,19 +255,54 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
+  menuOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
-  actionButton: {
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  menuSheet: {
+    backgroundColor: COLORS.modal,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 28,
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: COLORS.border,
+    gap: 4,
   },
-  actionLabel: {
-    color: COLORS.textPrimary,
+  menuTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  menuRow: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  menuRowLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  menuRowDanger: {
+    color: COLORS.destructive,
+  },
+  menuCancel: {
+    marginTop: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  menuCancelLabel: {
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

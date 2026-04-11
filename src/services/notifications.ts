@@ -51,7 +51,12 @@ export async function openNotificationSettings() {
 }
 
 export async function rescheduleAllTaskReminders(tasks: TaskInstance[]) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((request) => request.content.data?.taskId != null)
+      .map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier))
+  );
   const now = Date.now();
 
   for (const task of tasks) {

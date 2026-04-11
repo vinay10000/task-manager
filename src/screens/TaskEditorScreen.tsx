@@ -250,8 +250,9 @@ export function TaskEditorScreen({ route, navigation }: any) {
               label={option.label}
               active={draft.reminderOffset === option.value}
               accentColor={settings.accentColor}
+              disabled={!canReminder || !notificationGranted}
               onPress={() => {
-                if (!notificationGranted) {
+                if (!canReminder || !notificationGranted) {
                   return;
                 }
                 setDraft((current) => ({ ...current, reminderOffset: option.value }));
@@ -347,18 +348,25 @@ function ScopeButton({
   active,
   accentColor,
   onPress,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
   accentColor: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[
+      disabled={disabled}
+      style={({ pressed }) => [
         styles.scopeButton,
-        { borderColor: active ? accentColor : COLORS.border, backgroundColor: active ? accentColor : COLORS.card },
+        {
+          borderColor: active ? accentColor : COLORS.border,
+          backgroundColor: active ? accentColor : COLORS.card,
+          opacity: disabled ? 0.38 : pressed ? 0.85 : 1,
+        },
       ]}
     >
       <Text style={[styles.scopeLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>

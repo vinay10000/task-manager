@@ -1,10 +1,12 @@
 import { addDays, addMonths, compareAsc, format, isAfter, parseISO, startOfDay } from 'date-fns';
 
 import { ACCENT_OPTIONS, DEFAULT_CATEGORY_NAMES } from '../constants/theme';
+import { resolveLocalWallClockInstant } from './reminderWallClock';
 import {
   ActivityDay,
   AppSettings,
   Category,
+  PersistedAppData,
   Priority,
   ReminderOffset,
   Subtask,
@@ -120,7 +122,13 @@ export function computeReminderTime(
     reminder.setHours(reminder.getHours() - 1);
   }
 
-  return reminder.toISOString();
+  const y = reminder.getFullYear();
+  const mo = reminder.getMonth() + 1;
+  const d = reminder.getDate();
+  const h = reminder.getHours();
+  const mi = reminder.getMinutes();
+  const resolved = resolveLocalWallClockInstant(y, mo, d, h, mi);
+  return resolved.toISOString();
 }
 
 export function formatDateLabel(date: string | null) {
@@ -265,6 +273,75 @@ export function createInstanceFromSeries(series: TaskSeries, dueDate: string, so
     completedAt: null,
     createdAt: now,
     activityLog: [],
+  };
+}
+
+/** Local midnight on the skipped instance's due date — anchors series rule after delete/skip. */
+export function skipRecurrenceAnchorIso(task: TaskInstance): string {
+  if (!task.dueDate) {
+    return new Date().toISOString();
+  }
+  const localStart = mergeLocalDateAndTime(task.dueDate, '00:00');
+  if (!localStart) {
+    return new Date().toISOString();
+  }
+  return startOfDay(localStart).toISOString();
+}
+
+export function applyMissedReminderCatchUp(tasks: TaskInstance[]): { tasks: TaskInstance[]; missedCount: number } {
+  const now = new Date().toISOString();
+  const missedIds = new Set(
+    tasks
+      .filter((t) => !t.completed && t.hasReminder && t.reminderTime && t.reminderTime < now && !t.reminderFired)
+      .map((t) => t.id)
+  );
+  if (missedIds.size === 0) {
+    return { tasks, missedCount: 0 };
+  }
+  return {
+    tasks: tasks.map((t) => (missedIds.has(t.id) ? { ...t, reminderFired: true } : t)),
+    missedCount: missedIds.size,
+  };
+}
+
+export function realignTaskReminderTimes(tasks: TaskInstance[]): TaskInstance[] {
+  return tasks.map((task) => ({
+    ...task,
+    reminderTime: task.hasReminder ? computeReminderTime(task.dueDate, task.dueTime, task.reminderOffset) : null,
+  }));
+}
+
+export function reindexTasksAfterCustomReorder(allTasks: TaskInstance[], orderedIds: string[]): TaskInstance[] {
+  const idOrder = new Set(orderedIds);
+  const ordered = orderedIds
+    .map((id) => allTasks.find((t) => t.id === id))
+    .filter(Boolean) as TaskInstance[];
+  const rest = allTasks.filter((t) => !idOrder.has(t.id)).sort((a, b) => a.sortOrder - b.sortOrder);
+  const merged = [...ordered, ...rest];
+  return merged.map((task, index) => ({ ...task, sortOrder: index }));
+}
+
+/** Timezone realignment + missed reminder catch-up for cold start and resume. */
+export function reconcilePersistedOnResume(current: PersistedAppData): {
+  next: PersistedAppData;
+  missedLine: string | null;
+} {
+  const tz = getTimezone();
+  let working: PersistedAppData = current;
+  if (current.settings.timezone !== tz) {
+    working = {
+      ...current,
+      settings: { ...current.settings, timezone: tz },
+      tasks: realignTaskReminderTimes(current.tasks),
+    };
+  }
+  const catchUp = applyMissedReminderCatchUp(working.tasks);
+  if (catchUp.missedCount === 0) {
+    return { next: working, missedLine: null };
+  }
+  return {
+    next: { ...working, tasks: catchUp.tasks },
+    missedLine: `You have ${catchUp.missedCount} missed reminder${catchUp.missedCount > 1 ? 's' : ''}.`,
   };
 }
 

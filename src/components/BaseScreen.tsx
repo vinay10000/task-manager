@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { SafeAreaView, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS } from '../constants/theme';
 
@@ -20,7 +21,11 @@ export function BaseScreen({
     <View style={[styles.content, contentContainerStyle]}>{children}</View>
   );
 
-  return <SafeAreaView style={[styles.screen, style]}>{body}</SafeAreaView>;
+  return (
+    <SafeAreaView style={[styles.screen, style]} edges={['top', 'left', 'right']}>
+      {body}
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({

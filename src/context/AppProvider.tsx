@@ -6,6 +6,7 @@ import {
   getNotificationPermissionGranted,
   rescheduleAllTaskReminders,
   requestNotificationPermission,
+  setupNotificationChannel,
 } from '../services/notifications';
 import { loadPersistedAppData, persistAppData } from '../services/storage';
 import {
@@ -105,6 +106,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (cancelled) {
         return;
       }
+
+      await setupNotificationChannel();
+
       setData(loadedData);
       setWarnings(loadedWarnings);
       setNotificationGranted(await getNotificationPermissionGranted());
@@ -521,25 +525,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const completeTask = (taskId: string) => {
     setData((current) => {
       const target = current.tasks.find((task) => task.id === taskId);
-      if (!target || target.completed) {
+      if (!target) {
         return current;
       }
 
-      const completedAt = new Date().toISOString();
-      const completedDate = getDateKey(new Date(completedAt));
+      // Toggle completion status
+      const isCompleting = !target.completed;
+      const completedAt = isCompleting ? new Date().toISOString() : null;
+      const completedDate = isCompleting ? getDateKey(new Date(completedAt!)) : null;
+
       const tasks = current.tasks.map((task) =>
         task.id === taskId
           ? {
               ...task,
-              completed: true,
+              completed: isCompleting,
               completedAt,
-              reminderFired: true,
-              activityLog: upsertActivityLog(task.activityLog, completedDate, { wasCompleted: true }),
+              reminderFired: isCompleting ? true : task.reminderFired,
+              activityLog: isCompleting
+                ? upsertActivityLog(task.activityLog, completedDate!, { wasCompleted: true })
+                : task.activityLog,
             }
           : task
       );
 
-      if (!target.seriesId) {
+      // Only handle recurring task logic when completing (not when uncompleting)
+      if (!isCompleting || !target.seriesId) {
         return { ...current, tasks };
       }
 
@@ -555,7 +565,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       return {
         ...current,
-        tasks: [...tasks, createInstanceFromSeries(series, computeNextDueDate(series, completedAt), nextSortOrder(tasks))],
+        tasks: [...tasks, createInstanceFromSeries(series, computeNextDueDate(series, completedAt!), nextSortOrder(tasks))],
       };
     });
   };

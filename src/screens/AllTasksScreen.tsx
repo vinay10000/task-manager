@@ -1,26 +1,38 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
 import { BaseScreen } from '../components/BaseScreen';
-import { TaskCard } from '../components/TaskCard';
+import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
 import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
 import { TaskSort, TaskStatusFilter } from '../types/models';
 import { canReorderAllTasks, filterTasks, sortTasks } from '../utils/tasks';
 
-const SORT_OPTIONS: TaskSort[] = ['dueDate', 'priority', 'createdAt', 'alphabetical', 'custom'];
-const STATUS_OPTIONS: TaskStatusFilter[] = ['all', 'active', 'completed'];
+const SORT_LABELS: Record<TaskSort, string> = {
+  dueDate: 'Due Date',
+  priority: 'Priority',
+  createdAt: 'Created',
+  alphabetical: 'A-Z',
+  custom: 'Custom',
+};
 
 export function AllTasksScreen({ navigation }: any) {
-  const { tasks, categories, settings, reorderTaskInstances, completeTask } = useAppState();
+  const { tasks, categories, settings, reorderTaskInstances, completeTask, deleteTask, toggleSubtask } = useAppState();
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('all');
   const [status, setStatus] = useState<TaskStatusFilter>('all');
   const [sort, setSort] = useState<TaskSort>('dueDate');
+  const [showFilters, setShowFilters] = useState(false);
 
   const filtered = sortTasks(filterTasks(tasks, status, categoryId, search), sort);
+
+  const uniqueFiltered = filtered.filter((task, index, self) => index === self.findIndex((t) => t.id === task.id));
+
   const draggable = canReorderAllTasks(sort, categoryId, status, search);
+
+  const activeFilterCount = (status !== 'all' ? 1 : 0) + (categoryId !== 'all' ? 1 : 0);
 
   return (
     <BaseScreen style={styles.screen}>
@@ -37,49 +49,102 @@ export function AllTasksScreen({ navigation }: any) {
       <TextInput
         value={search}
         onChangeText={setSearch}
-        placeholder="Search titles, descriptions, and tags"
+        placeholder="Search..."
         placeholderTextColor={COLORS.textTertiary}
         style={styles.search}
       />
 
-      <View style={styles.filters}>
-        <ChipRow
-          options={STATUS_OPTIONS}
-          active={status}
-          accentColor={settings.accentColor}
-          onSelect={(value) => setStatus(value as TaskStatusFilter)}
-        />
-        <ChipRow
-          options={['all', ...categories.map((category) => category.id)]}
-          labels={{ all: 'All', ...Object.fromEntries(categories.map((category) => [category.id, category.name])) }}
-          active={categoryId}
-          accentColor={settings.accentColor}
-          onSelect={setCategoryId}
-        />
-        <ChipRow
-          options={SORT_OPTIONS}
-          labels={{ dueDate: 'Due', priority: 'Priority', createdAt: 'Created', alphabetical: 'A-Z', custom: 'Custom' }}
-          active={sort}
-          accentColor={settings.accentColor}
-          onSelect={(value) => setSort(value as TaskSort)}
-        />
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusRow}>
+          <StatusPill
+            label="All"
+            active={status === 'all'}
+            accentColor={settings.accentColor}
+            onPress={() => setStatus('all')}
+          />
+          <StatusPill
+            label="Active"
+            active={status === 'active'}
+            accentColor={settings.accentColor}
+            onPress={() => setStatus('active')}
+          />
+          <StatusPill
+            label="Completed"
+            active={status === 'completed'}
+            accentColor={settings.accentColor}
+            onPress={() => setStatus('completed')}
+          />
+        </ScrollView>
+
+        <Pressable style={styles.sortButton} onPress={() => setShowFilters(!showFilters)}>
+          <MaterialCommunityIcons name="sort-variant" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.sortLabel}>{SORT_LABELS[sort]}</Text>
+          {activeFilterCount > 0 ? (
+            <View style={[styles.badge, { backgroundColor: settings.accentColor }]}>
+              <Text style={styles.badgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       </View>
+
+      {showFilters && (
+        <View style={styles.expandedFilters}>
+          <View style={styles.filterSection}>
+            <Text style={styles.filterSectionLabel}>Sort by</Text>
+            <View style={styles.chipRow}>
+              {(Object.keys(SORT_LABELS) as TaskSort[]).map((option) => (
+                <FilterChip
+                  key={option}
+                  label={SORT_LABELS[option]}
+                  active={sort === option}
+                  accentColor={settings.accentColor}
+                  onPress={() => setSort(option)}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterSectionLabel}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+              <FilterChip label="All" active={categoryId === 'all'} accentColor={settings.accentColor} onPress={() => setCategoryId('all')} />
+              {categories.map((category) => (
+                <FilterChip
+                  key={category.id}
+                  label={category.name}
+                  active={categoryId === category.id}
+                  accentColor={settings.accentColor}
+                  onPress={() => setCategoryId(category.id)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          {(categoryId !== 'all' || sort !== 'dueDate') && (
+            <Pressable style={styles.clearButton} onPress={() => { setCategoryId('all'); setSort('dueDate'); }}>
+              <Text style={[styles.clearText, { color: settings.accentColor }]}>Reset Filters</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {draggable ? (
         <DraggableFlatList
-          data={filtered}
+          data={uniqueFiltered}
           keyExtractor={(item) => item.id}
           onDragEnd={({ data }) => reorderTaskInstances(data.map((item) => item.id))}
           contentContainerStyle={styles.list}
           renderItem={({ item, drag, isActive }) => (
             <ScaleDecorator>
               <View style={{ opacity: isActive ? 0.9 : 1 }}>
-                <TaskCard
+                <SwipeableTaskCard
                   task={item}
                   category={categories.find((category) => category.id === item.categoryId)}
                   accentColor={settings.accentColor}
                   onPress={() => navigation.navigate('TaskDetail', { taskId: item.id })}
                   onComplete={() => completeTask(item.id)}
+                  onDelete={() => deleteTask(item.id)}
+                  onToggleSubtask={(subtaskId) => toggleSubtask(item.id, subtaskId)}
                   onLongPress={drag}
                   showDragHandle
                 />
@@ -89,19 +154,21 @@ export function AllTasksScreen({ navigation }: any) {
         />
       ) : (
         <View style={styles.list}>
-          {filtered.map((task) => (
-            <TaskCard
+          {uniqueFiltered.map((task) => (
+            <SwipeableTaskCard
               key={task.id}
               task={task}
               category={categories.find((category) => category.id === task.categoryId)}
               accentColor={settings.accentColor}
               onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
               onComplete={() => completeTask(task.id)}
+              onDelete={() => deleteTask(task.id)}
+              onToggleSubtask={(subtaskId) => toggleSubtask(task.id, subtaskId)}
             />
           ))}
-          {filtered.length === 0 ? <Text style={styles.empty}>No tasks match your current filters.</Text> : null}
+          {uniqueFiltered.length === 0 ? <Text style={styles.empty}>No tasks match your filters.</Text> : null}
           {!draggable && sort === 'custom' ? (
-            <Text style={styles.helper}>Custom drag is available only when search is empty and all filters are set to All.</Text>
+            <Text style={styles.helper}>Custom drag requires all filters to be "All".</Text>
           ) : null}
         </View>
       )}
@@ -109,39 +176,48 @@ export function AllTasksScreen({ navigation }: any) {
   );
 }
 
-function ChipRow({
-  options,
+function StatusPill({
+  label,
   active,
   accentColor,
-  onSelect,
-  labels = {},
+  onPress,
 }: {
-  options: string[];
-  active: string;
+  label: string;
+  active: boolean;
   accentColor: string;
-  onSelect: (value: string) => void;
-  labels?: Record<string, string>;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.chipRow}>
-      {options.map((option) => {
-        const selected = option === active;
-        return (
-          <Pressable
-            key={option}
-            onPress={() => onSelect(option)}
-            style={[
-              styles.chip,
-              { borderColor: selected ? accentColor : COLORS.border, backgroundColor: selected ? accentColor : COLORS.card },
-            ]}
-          >
-            <Text style={[styles.chipLabel, { color: selected ? COLORS.background : COLORS.textPrimary }]}>
-              {labels[option] ?? option}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={[styles.statusPill, { backgroundColor: active ? accentColor : COLORS.card, borderColor: active ? accentColor : COLORS.border }]}
+    >
+      <Text style={[styles.statusPillLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  accentColor,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  accentColor: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.filterChip,
+        { borderColor: active ? accentColor : COLORS.border, backgroundColor: active ? accentColor : COLORS.card },
+      ]}
+    >
+      <Text style={[styles.filterChipLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -158,7 +234,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '800',
   },
   addButton: {
@@ -174,32 +250,108 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.input,
     borderColor: COLORS.border,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     color: COLORS.textPrimary,
     marginBottom: 12,
+    fontSize: 14,
   },
-  filters: {
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statusPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusPillLabel: {
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  sortLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: COLORS.background,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  expandedFilters: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    gap: 12,
+    marginBottom: 10,
+  },
+  filterSection: {
+    gap: 8,
+  },
+  filterSectionLabel: {
+    color: COLORS.textTertiary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
-  chip: {
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  filterChip: {
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 7,
   },
-  chipLabel: {
+  filterChipLabel: {
     fontWeight: '700',
+    fontSize: 12,
+  },
+  clearButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  clearText: {
+    fontWeight: '700',
+    fontSize: 13,
   },
   list: {
-    gap: 12,
+    gap: 8,
     paddingBottom: 140,
   },
   empty: {

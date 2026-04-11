@@ -1,5 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
 
 import { ToastHost } from './src/components/ToastHost';
 import { AppProvider } from './src/context/AppProvider';
@@ -20,10 +22,18 @@ function AppShell() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <AppShell />
-      </AppProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <SafeAreaProvider>
+        <AppProvider>
+          <AppShell />
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

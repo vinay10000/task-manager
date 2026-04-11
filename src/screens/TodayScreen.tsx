@@ -3,14 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { BaseScreen } from '../components/BaseScreen';
-import { TaskCard } from '../components/TaskCard';
+import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
 import { COLORS, PRIORITY_OPTIONS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
 import { Priority } from '../types/models';
 import { getTodayBuckets } from '../utils/tasks';
 
 export function TodayScreen({ navigation }: any) {
-  const { tasks, categories, settings, completeTask } = useAppState();
+  const { tasks, categories, settings, completeTask, deleteTask, toggleSubtask } = useAppState();
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     high: false,
@@ -19,7 +19,8 @@ export function TodayScreen({ navigation }: any) {
     completed: true,
   });
 
-  const categoryFiltered = tasks.filter((task) => categoryFilter === 'all' || task.categoryId === categoryFilter);
+  const uniqueTasks = tasks.filter((task, index, self) => index === self.findIndex((t) => t.id === task.id));
+  const categoryFiltered = uniqueTasks.filter((task) => categoryFilter === 'all' || task.categoryId === categoryFilter);
   const { overdue, todayTasks, completed } = getTodayBuckets(categoryFiltered);
   const taskMap = todayTasks;
 
@@ -47,25 +48,28 @@ export function TodayScreen({ navigation }: any) {
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-        <FilterPill
-          label="All"
-          active={categoryFilter === 'all'}
-          accentColor={settings.accentColor}
-          onPress={() => setCategoryFilter('all')}
-        />
-        {categories
-          .filter((category) => category.systemType !== 'uncategorized' || tasks.some((task) => task.categoryId === category.id))
-          .map((category) => (
-            <FilterPill
-              key={category.id}
-              label={category.name}
-              active={categoryFilter === category.id}
-              accentColor={settings.accentColor}
-              onPress={() => setCategoryFilter(category.id)}
-            />
-          ))}
-      </ScrollView>
+      <View style={styles.filterWrapper}>
+        <Text style={styles.filterLabel}>Filter:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          <FilterPill
+            label="All"
+            active={categoryFilter === 'all'}
+            accentColor={settings.accentColor}
+            onPress={() => setCategoryFilter('all')}
+          />
+          {categories
+            .filter((category) => category.systemType !== 'uncategorized' || tasks.some((task) => task.categoryId === category.id))
+            .map((category) => (
+              <FilterPill
+                key={category.id}
+                label={category.name}
+                active={categoryFilter === category.id}
+                accentColor={settings.accentColor}
+                onPress={() => setCategoryFilter(category.id)}
+              />
+            ))}
+        </ScrollView>
+      </View>
 
       <View style={styles.statsCard}>
         <Text style={styles.statsText}>
@@ -80,13 +84,15 @@ export function TodayScreen({ navigation }: any) {
         <View style={styles.group}>
           <Text style={styles.groupTitle}>Overdue</Text>
           {overdue.map((task) => (
-            <TaskCard
+            <SwipeableTaskCard
               key={task.id}
               task={task}
               category={categories.find((category) => category.id === task.categoryId)}
               accentColor={settings.accentColor}
               onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
               onComplete={() => completeTask(task.id)}
+              onDelete={() => deleteTask(task.id)}
+              onToggleSubtask={(subtaskId) => toggleSubtask(task.id, subtaskId)}
             />
           ))}
         </View>
@@ -107,13 +113,15 @@ export function TodayScreen({ navigation }: any) {
           </Pressable>
           {!collapsed[priority] &&
             grouped[priority].map((task) => (
-              <TaskCard
+              <SwipeableTaskCard
                 key={task.id}
                 task={task}
                 category={categories.find((category) => category.id === task.categoryId)}
                 accentColor={settings.accentColor}
                 onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
                 onComplete={() => completeTask(task.id)}
+                onDelete={() => deleteTask(task.id)}
+                onToggleSubtask={(subtaskId) => toggleSubtask(task.id, subtaskId)}
               />
             ))}
         </View>
@@ -133,12 +141,14 @@ export function TodayScreen({ navigation }: any) {
         </Pressable>
         {!collapsed.completed &&
           completed.map((task) => (
-            <TaskCard
+            <SwipeableTaskCard
               key={task.id}
               task={task}
               category={categories.find((category) => category.id === task.categoryId)}
               accentColor={settings.accentColor}
               onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
+              onDelete={() => deleteTask(task.id)}
+              onToggleSubtask={(subtaskId) => toggleSubtask(task.id, subtaskId)}
             />
           ))}
       </View>
@@ -179,50 +189,66 @@ function FilterPill({
 
 const styles = StyleSheet.create({
   content: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 2,
   },
   greeting: {
     color: COLORS.textPrimary,
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: '800',
   },
   dateLabel: {
     color: COLORS.textSecondary,
-    marginTop: 6,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  filterWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  filterLabel: {
+    color: COLORS.textTertiary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   filterRow: {
-    gap: 10,
-    paddingRight: 20,
+    gap: 6,
+    paddingRight: 16,
   },
   pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
   },
   pillLabel: {
     fontWeight: '700',
+    fontSize: 12,
   },
   statsCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 12,
+    gap: 10,
   },
   statsText: {
     color: COLORS.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   progressTrack: {
-    height: 10,
+    height: 8,
     borderRadius: 999,
     backgroundColor: COLORS.input,
     overflow: 'hidden',
@@ -232,26 +258,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   group: {
-    gap: 12,
+    gap: 6,
   },
   groupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 2,
   },
   groupTitle: {
     color: COLORS.textPrimary,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    right: 16,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -5,6 +5,13 @@ import { Platform } from 'react-native';
 import { TaskInstance } from '../types/models';
 
 const CHANNEL_ID = 'task-reminders';
+export const TASK_REMINDER_CATEGORY_ID = 'taskReminderActions';
+export const TASK_REMINDER_DONE_ACTION_ID = 'taskReminderDone';
+export const TASK_REMINDER_SNOOZE_ACTION_ID = 'taskReminderSnooze10';
+
+export interface TaskReminderNotificationData {
+  taskId: string;
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,6 +23,23 @@ Notifications.setNotificationHandler({
 });
 
 export async function setupNotificationChannel(): Promise<void> {
+  await Notifications.setNotificationCategoryAsync(TASK_REMINDER_CATEGORY_ID, [
+    {
+      identifier: TASK_REMINDER_DONE_ACTION_ID,
+      buttonTitle: 'Done',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
+    {
+      identifier: TASK_REMINDER_SNOOZE_ACTION_ID,
+      buttonTitle: 'Snooze 10 min',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
+  ]);
+
   if (Platform.OS !== 'android') {
     return;
   }
@@ -50,6 +74,19 @@ export async function openNotificationSettings() {
   await Linking.openSettings();
 }
 
+export function getTaskReminderNotificationData(data: unknown): TaskReminderNotificationData | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const taskId = (data as { taskId?: unknown }).taskId;
+  if (typeof taskId !== 'string' || !taskId) {
+    return null;
+  }
+
+  return { taskId };
+}
+
 export async function rescheduleAllTaskReminders(tasks: TaskInstance[]) {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
@@ -74,6 +111,7 @@ export async function rescheduleAllTaskReminders(tasks: TaskInstance[]) {
         title: task.title,
         body: task.description || 'Task reminder',
         data: { taskId: task.id },
+        categoryIdentifier: TASK_REMINDER_CATEGORY_ID,
         ...(Platform.OS === 'android' && {
           channelId: CHANNEL_ID,
         }),

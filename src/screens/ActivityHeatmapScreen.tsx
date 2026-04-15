@@ -4,6 +4,7 @@ import { BaseScreen } from '../components/BaseScreen';
 import { Heatmap } from '../components/Heatmap';
 import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 function computeStreaks(dates: string[]) {
   const ordered = [...new Set(dates)].sort();
@@ -37,12 +38,13 @@ function computeStreaks(dates: string[]) {
 export function ActivityHeatmapScreen({ route }: any) {
   const { taskId } = route.params;
   const { tasks, settings } = useAppState();
+  const colors = useThemeColors();
   const task = tasks.find((item) => item.id === taskId);
 
   if (!task) {
     return (
       <BaseScreen>
-        <Text style={styles.empty}>Task not found.</Text>
+        <Text style={[styles.empty, { color: colors.textSecondary }]}>Task not found.</Text>
       </BaseScreen>
     );
   }
@@ -56,13 +58,13 @@ export function ActivityHeatmapScreen({ route }: any) {
 
   return (
     <BaseScreen scroll>
-      <Text style={styles.title}>Activity Heatmap</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Activity Heatmap</Text>
       <Heatmap accentColor={settings.accentColor} activityLog={activityLog} />
-      <View style={styles.stats}>
-        <Text style={styles.stat}>Active Days: {activeDays}</Text>
-        <Text style={styles.stat}>Best Streak: {streaks.best}</Text>
-        <Text style={styles.stat}>Current Streak: {streaks.current}</Text>
-        <Text style={styles.stat}>Total Subtasks Done: {totalSubtasksDone}</Text>
+      <View style={[styles.stats, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.stat, { color: colors.textSecondary }]}>Active Days: {activeDays}</Text>
+        <Text style={[styles.stat, { color: colors.textSecondary }]}>Best Streak: {streaks.best}</Text>
+        <Text style={[styles.stat, { color: colors.textSecondary }]}>Current Streak: {streaks.current}</Text>
+        <Text style={[styles.stat, { color: colors.textSecondary }]}>Total Subtasks Done: {totalSubtasksDone}</Text>
       </View>
     </BaseScreen>
   );
@@ -70,22 +72,15 @@ export function ActivityHeatmapScreen({ route }: any) {
 
 const styles = StyleSheet.create({
   title: {
-    color: COLORS.textPrimary,
     fontSize: 28,
     fontWeight: '800',
   },
   stats: {
-    backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: COLORS.border,
     gap: 10,
   },
-  stat: {
-    color: COLORS.textSecondary,
-  },
-  empty: {
-    color: COLORS.textSecondary,
-  },
+  stat: {},
+  empty: {},
 });

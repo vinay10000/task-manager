@@ -3,6 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '../constants/theme';
+import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { Category, TaskInstance } from '../types/models';
 import { formatDateTimeLabel } from '../utils/tasks';
 
@@ -25,15 +27,19 @@ export function TaskCard({
   onToggleSubtask?: (subtaskId: string) => void;
   showDragHandle?: boolean;
 }) {
+  const { settings } = useAppState();
+  const colors = useThemeColors();
   const subtaskDone = task.subtasks.filter((subtask) => subtask.completed).length;
 
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={onPress}
       onLongPress={() => {
         if (onLongPress) {
-          void Haptics.selectionAsync();
+          if (settings.hapticsEnabled) {
+            void Haptics.selectionAsync();
+          }
           onLongPress();
         }
       }}
@@ -43,7 +49,9 @@ export function TaskCard({
           onPress={(e) => {
             e.stopPropagation();
             if (onComplete) {
-              void Haptics.selectionAsync();
+              if (settings.hapticsEnabled) {
+                void Haptics.selectionAsync();
+              }
               onComplete();
             }
           }}
@@ -53,17 +61,26 @@ export function TaskCard({
               borderColor: accentColor,
               backgroundColor: accentColor,
             },
+            !task.completed && { borderColor: colors.border },
           ]}
           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
         >
-          {task.completed ? <MaterialCommunityIcons name="check" size={14} color={COLORS.background} /> : null}
+          {task.completed ? <MaterialCommunityIcons name="check" size={14} color={colors.background} /> : null}
         </Pressable>
-        <View style={[styles.categoryDot, { backgroundColor: category?.color ?? COLORS.textTertiary }]} />
+        <View style={[styles.categoryDot, { backgroundColor: category?.color ?? colors.textTertiary }]} />
         <View style={styles.textWrap}>
-          <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary },
+              task.completed && styles.completedText,
+              task.completed && { color: colors.textSecondary },
+            ]}
+            numberOfLines={1}
+          >
             {task.title}
           </Text>
-          <Text style={styles.meta} numberOfLines={2}>
+          <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={2}>
             {formatDateTimeLabel(task.dueDate, task.dueTime)}
           </Text>
         </View>
@@ -72,19 +89,19 @@ export function TaskCard({
             <MaterialCommunityIcons name="autorenew" size={16} color={accentColor} />
           ) : null}
           {task.hasReminder ? <MaterialCommunityIcons name="bell-outline" size={16} color={accentColor} /> : null}
-          {showDragHandle ? <MaterialCommunityIcons name="drag" size={18} color={COLORS.textTertiary} /> : null}
+          {showDragHandle ? <MaterialCommunityIcons name="drag" size={18} color={colors.textTertiary} /> : null}
         </View>
       </View>
       <View style={styles.footerRow}>
-        <Text style={styles.meta}>{category?.name ?? 'Uncategorized'}</Text>
-        {task.tags.length > 0 ? <Text style={styles.meta}>#{task.tags.join(' #')}</Text> : null}
+        <Text style={[styles.meta, { color: colors.textSecondary }]}>{category?.name ?? 'Uncategorized'}</Text>
+        {task.tags.length > 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}>#{task.tags.join(' #')}</Text> : null}
       </View>
 
       {/* Subtasks List */}
       {task.subtasks.length > 0 && (
         <View style={styles.subtasksContainer}>
-          <View style={styles.subtasksDivider} />
-          <Text style={styles.subtasksHeader}>
+          <View style={[styles.subtasksDivider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.subtasksHeader, { color: colors.textTertiary }]}>
             Subtasks ({subtaskDone}/{task.subtasks.length})
           </Text>
           {task.subtasks.map((subtask) => (
@@ -94,7 +111,9 @@ export function TaskCard({
               onPress={(e) => {
                 e.stopPropagation();
                 if (onToggleSubtask) {
-                  void Haptics.selectionAsync();
+                  if (settings.hapticsEnabled) {
+                    void Haptics.selectionAsync();
+                  }
                   onToggleSubtask(subtask.id);
                 }
               }}
@@ -106,16 +125,19 @@ export function TaskCard({
                     borderColor: accentColor,
                     backgroundColor: accentColor,
                   },
+                  !subtask.completed && { borderColor: colors.border },
                 ]}
               >
                 {subtask.completed ? (
-                  <MaterialCommunityIcons name="check" size={12} color={COLORS.background} />
+                  <MaterialCommunityIcons name="check" size={12} color={colors.background} />
                 ) : null}
               </View>
               <Text
                 style={[
                   styles.subtaskTitle,
+                  { color: colors.textSecondary },
                   subtask.completed && styles.subtaskCompletedText,
+                  subtask.completed && { color: colors.textTertiary },
                 ]}
                 numberOfLines={1}
               >
@@ -131,12 +153,10 @@ export function TaskCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -148,7 +168,6 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -162,16 +181,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
   completedText: {
-    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
   meta: {
-    color: COLORS.textSecondary,
     fontSize: 11,
     lineHeight: 14,
   },
@@ -182,7 +198,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   subtaskMeta: {
-    color: COLORS.textTertiary,
     marginTop: 4,
   },
   icons: {
@@ -195,11 +210,9 @@ const styles = StyleSheet.create({
   },
   subtasksDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
     marginVertical: 8,
   },
   subtasksHeader: {
-    color: COLORS.textTertiary,
     fontSize: 10,
     fontWeight: '600',
     marginBottom: 6,
@@ -218,17 +231,14 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   subtaskTitle: {
-    color: COLORS.textSecondary,
     fontSize: 12,
     flex: 1,
   },
   subtaskCompletedText: {
-    color: COLORS.textTertiary,
     textDecorationLine: 'line-through',
   },
 });

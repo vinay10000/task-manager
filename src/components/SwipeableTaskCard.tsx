@@ -6,6 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { COLORS } from '../constants/theme';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { Category, TaskInstance } from '../types/models';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import { TaskCard } from './TaskCard';
@@ -35,6 +36,7 @@ export function SwipeableTaskCard({
   onToggleSubtask,
   showDragHandle = false,
 }: SwipeableTaskCardProps) {
+  const colors = useThemeColors();
   const translateX = useSharedValue(0);
   const [isSwiped, setIsSwiped] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -86,7 +88,7 @@ export function SwipeableTaskCard({
     <View style={styles.container}>
       {/* Swipeable card */}
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[animatedCardStyle, styles.cardWrapper]}>
+        <Animated.View style={[animatedCardStyle, styles.cardWrapper, { backgroundColor: colors.background }]}>
           <TaskCard
             task={task}
             category={category}
@@ -112,8 +114,8 @@ export function SwipeableTaskCard({
           style={styles.deletePressable}
           onPress={openDeleteModal}
         >
-          <MaterialCommunityIcons name="delete-outline" size={24} color={COLORS.background} />
-          <Text style={styles.deleteText}>Delete</Text>
+          <MaterialCommunityIcons name="delete-outline" size={24} color={colors.background} />
+          <Text style={[styles.deleteText, { color: colors.background }]}>Delete</Text>
         </Pressable>
       </Animated.View>
 
@@ -132,7 +134,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardWrapper: {
-    backgroundColor: COLORS.background,
   },
   deleteButton: {
     position: 'absolute',
@@ -155,7 +156,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   deleteText: {
-    color: COLORS.background,
     fontSize: 11,
     fontWeight: '600',
   },

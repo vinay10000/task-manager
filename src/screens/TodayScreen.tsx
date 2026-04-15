@@ -6,11 +6,13 @@ import { BaseScreen } from '../components/BaseScreen';
 import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
 import { COLORS, PRIORITY_OPTIONS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { Priority } from '../types/models';
 import { getTodayBuckets } from '../utils/tasks';
 
 export function TodayScreen({ navigation }: any) {
   const { tasks, categories, settings, completeTask, deleteTask, toggleSubtask } = useAppState();
+  const colors = useThemeColors();
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     high: false,
@@ -40,16 +42,16 @@ export function TodayScreen({ navigation }: any) {
     <BaseScreen scroll contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Today</Text>
-          <Text style={styles.dateLabel}>{new Date().toDateString()}</Text>
+          <Text style={[styles.greeting, { color: colors.textPrimary }]}>Today</Text>
+          <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>{new Date().toDateString()}</Text>
         </View>
         <Pressable onPress={() => navigation.navigate('Settings')}>
-          <MaterialCommunityIcons name="cog-outline" size={24} color={COLORS.textPrimary} />
+          <MaterialCommunityIcons name="cog-outline" size={24} color={colors.textPrimary} />
         </Pressable>
       </View>
 
       <View style={styles.filterWrapper}>
-        <Text style={styles.filterLabel}>Filter:</Text>
+        <Text style={[styles.filterLabel, { color: colors.textTertiary }]}>Filter:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           <FilterPill
             label="All"
@@ -71,11 +73,11 @@ export function TodayScreen({ navigation }: any) {
         </ScrollView>
       </View>
 
-      <View style={styles.statsCard}>
-        <Text style={styles.statsText}>
+      <View style={[styles.statsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.statsText, { color: colors.textPrimary }]}>
           {doneToday} of {totalToday} tasks done
         </Text>
-        <View style={styles.progressTrack}>
+        <View style={[styles.progressTrack, { backgroundColor: colors.input }]}>
           <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: settings.accentColor }]} />
         </View>
       </View>
@@ -108,7 +110,7 @@ export function TodayScreen({ navigation }: any) {
             <MaterialCommunityIcons
               name={collapsed[priority] ? 'chevron-down' : 'chevron-up'}
               size={20}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
           </Pressable>
           {!collapsed[priority] &&
@@ -132,11 +134,11 @@ export function TodayScreen({ navigation }: any) {
           style={styles.groupHeader}
           onPress={() => setCollapsed((current) => ({ ...current, completed: !current.completed }))}
         >
-          <Text style={[styles.groupTitle, { color: COLORS.textSecondary }]}>Completed</Text>
+          <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>Completed</Text>
           <MaterialCommunityIcons
             name={collapsed.completed ? 'chevron-down' : 'chevron-up'}
             size={20}
-            color={COLORS.textSecondary}
+            color={colors.textSecondary}
           />
         </Pressable>
         {!collapsed.completed &&
@@ -157,7 +159,7 @@ export function TodayScreen({ navigation }: any) {
         style={[styles.fab, { backgroundColor: settings.accentColor }]}
         onPress={() => navigation.navigate('TaskEditor')}
       >
-        <MaterialCommunityIcons name="plus" size={28} color={COLORS.background} />
+        <MaterialCommunityIcons name="plus" size={28} color={colors.background} />
       </Pressable>
     </BaseScreen>
   );
@@ -174,15 +176,16 @@ function FilterPill({
   accentColor: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.pill,
-        { borderColor: active ? accentColor : COLORS.border, backgroundColor: active ? accentColor : COLORS.card },
+        { borderColor: active ? accentColor : colors.border, backgroundColor: active ? accentColor : colors.card },
       ]}
     >
-      <Text style={[styles.pillLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>
+      <Text style={[styles.pillLabel, { color: active ? colors.background : colors.textPrimary }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -200,12 +203,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   greeting: {
-    color: COLORS.textPrimary,
     fontSize: 26,
     fontWeight: '800',
   },
   dateLabel: {
-    color: COLORS.textSecondary,
     fontSize: 13,
     marginTop: 4,
   },
@@ -216,7 +217,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   filterLabel: {
-    color: COLORS.textTertiary,
     fontSize: 12,
     fontWeight: '600',
   },

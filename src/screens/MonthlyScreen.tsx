@@ -1,247 +1,388 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { addMonths, eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  parse,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
 
 import { BaseScreen } from '../components/BaseScreen';
-import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
-import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
+import { Category, TaskInstance } from '../types/models';
+
+const WEEK_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export function MonthlyScreen({ navigation }: any) {
-  const { tasks, categories, settings, deleteTask, toggleSubtask } = useAppState();
+  const { tasks, categories, settings } = useAppState();
+  const colors = useThemeColors();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [categoryId, setCategoryId] = useState('all');
 
-  const uniqueTasks = useMemo(() => tasks.filter((task, index, self) => index === self.findIndex((t) => t.id === task.id)), [tasks]);
-
-  const visibleCategories = useMemo(
-    () =>
-      categories.filter(
-        (c) => c.systemType !== 'uncategorized' || tasks.some((t) => t.categoryId === c.id)
-      ),
-    [categories, tasks]
+  const uniqueTasks = useMemo(
+    () => tasks.filter((task, index, self) => index === self.findIndex((candidate) => candidate.id === task.id)),
+    [tasks]
   );
 
-  const monthDays = useMemo(
-    () => eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) }),
+  const calendarDays = useMemo(
+    () =>
+      eachDayOfInterval({
+        start: startOfWeek(startOfMonth(currentMonth)),
+        end: endOfWeek(endOfMonth(currentMonth)),
+      }),
     [currentMonth]
   );
-  const dayTasks = uniqueTasks.filter(
-    (task) => task.dueDate === selectedDate && !task.completed && (categoryId === 'all' || task.categoryId === categoryId)
+
+  const pendingTasks = useMemo(
+    () =>
+      uniqueTasks
+        .filter((task) => task.dueDate === selectedDate && !task.completed)
+        .sort((left, right) => (left.dueTime ?? '99:99').localeCompare(right.dueTime ?? '99:99')),
+    [selectedDate, uniqueTasks]
   );
 
+  const selectedDateLabel = format(parseISO(selectedDate), 'MMM d');
+
   return (
-    <BaseScreen scroll contentContainerStyle={styles.screenContent}>
+    <BaseScreen scroll contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Pressable onPress={() => setCurrentMonth((current) => addMonths(current, -1))}>
-          <Text style={styles.monthNav}>Prev</Text>
-        </Pressable>
-        <Text style={styles.title}>{format(currentMonth, 'MMMM yyyy')}</Text>
-        <Pressable onPress={() => setCurrentMonth((current) => addMonths(current, 1))}>
-          <Text style={styles.monthNav}>Next</Text>
-        </Pressable>
+        <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>SCHEDULE</Text>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={[styles.monthTitle, { color: colors.textPrimary }]}>{format(currentMonth, 'MMMM')}</Text>
+            <Text style={[styles.monthTitle, { color: colors.textPrimary }]}>{format(currentMonth, 'yyyy')}</Text>
+          </View>
+          <View style={styles.arrowRow}>
+            <Pressable style={styles.arrowButton} onPress={() => setCurrentMonth((value) => addMonths(value, -1))}>
+              <MaterialCommunityIcons name="chevron-left" size={24} color="#D7F8FF" />
+            </Pressable>
+            <Pressable style={styles.arrowButton} onPress={() => setCurrentMonth((value) => addMonths(value, 1))}>
+              <MaterialCommunityIcons name="chevron-right" size={24} color="#D7F8FF" />
+            </Pressable>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.calendarSection}>
-        <View style={styles.weekDayLabels}>
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-            <Text key={index} style={styles.weekDayLabel}>{day}</Text>
+      <View style={styles.calendarWrap}>
+        <View style={styles.weekHeader}>
+          {WEEK_DAYS.map((label) => (
+            <Text key={label} style={[styles.weekLabel, { color: colors.textTertiary }]}>
+              {label}
+            </Text>
           ))}
         </View>
+
         <View style={styles.grid}>
-          {monthDays.map((day) => {
-            const key = format(day, 'yyyy-MM-dd');
-            const count = uniqueTasks.filter(
-              (task) => task.dueDate === key && !task.completed && (categoryId === 'all' || task.categoryId === categoryId)
-            ).length;
-            const active = key === selectedDate;
+          {calendarDays.map((day) => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const taskCount = uniqueTasks.filter((task) => task.dueDate === dateKey && !task.completed).length;
+            const selected = dateKey === selectedDate;
+            const inMonth = isSameMonth(day, currentMonth);
+
             return (
-              <Pressable
-                key={key}
-                style={[
-                  styles.cell,
-                  { borderColor: active ? settings.accentColor : COLORS.border, backgroundColor: active ? `${settings.accentColor}22` : COLORS.card },
-                ]}
-                onPress={() => setSelectedDate(key)}
-              >
-                <Text style={styles.cellText}>{format(day, 'd')}</Text>
-                {count > 0 ? <View style={[styles.dot, { backgroundColor: settings.accentColor }]} /> : null}
+              <Pressable key={dateKey} style={styles.dayCell} onPress={() => setSelectedDate(dateKey)}>
+                <View
+                  style={[
+                    styles.dayBubble,
+                    selected && {
+                      borderColor: settings.accentColor,
+                      shadowColor: settings.accentColor,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      { color: inMonth ? colors.textPrimary : '#2B2B2E' },
+                      selected && { color: '#E6FBFF' },
+                    ]}
+                  >
+                    {format(day, 'd')}
+                  </Text>
+                </View>
+                {taskCount > 0 ? (
+                  <View style={styles.dotRow}>
+                    {Array.from({ length: Math.min(taskCount, 3) }).map((_, index) => (
+                      <View key={index} style={[styles.dot, { backgroundColor: selected ? '#BFF7FF' : '#7D8E96' }]} />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.dotSpacer} />
+                )}
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>Filter:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          <FilterChip label="All" active={categoryId === 'all'} accentColor={settings.accentColor} onPress={() => setCategoryId('all')} />
-          {visibleCategories.map((category) => (
-            <FilterChip
-              key={category.id}
-              label={category.name}
-              active={categoryId === category.id}
-              accentColor={settings.accentColor}
-              onPress={() => setCategoryId(category.id)}
-            />
-          ))}
-        </ScrollView>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{`Tasks for ${selectedDateLabel}`}</Text>
+        <View style={[styles.pendingBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.pendingText, { color: '#9DEEFF' }]}>{`${pendingTasks.length} PENDING`}</Text>
+        </View>
       </View>
 
-      <View style={styles.sheet}>
-        <Text style={styles.sheetTitle}>{format(new Date(selectedDate), 'MMM d')} Tasks</Text>
-        <View style={styles.taskList}>
-          {dayTasks.length === 0 ? (
-            <Text style={styles.empty}>No tasks for this day.</Text>
-          ) : (
-            dayTasks.map((task) => (
-              <SwipeableTaskCard
-                key={task.id}
-                task={task}
-                category={categories.find((category) => category.id === task.categoryId)}
-                accentColor={settings.accentColor}
-                onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
-                onDelete={() => deleteTask(task.id)}
-                onToggleSubtask={(subtaskId) => toggleSubtask(task.id, subtaskId)}
-              />
-            ))
-          )}
-        </View>
+      <View style={styles.list}>
+        {pendingTasks.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Nothing scheduled</Text>
+            <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Pick another day or create a task for this date.</Text>
+          </View>
+        ) : (
+          pendingTasks.map((task) => (
+            <AgendaTaskCard
+              key={task.id}
+              task={task}
+              category={categories.find((category) => category.id === task.categoryId)}
+              accentColor={settings.accentColor}
+              onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
+            />
+          ))
+        )}
       </View>
     </BaseScreen>
   );
 }
 
-function FilterChip({
-  label,
-  active,
+function AgendaTaskCard({
+  task,
+  category,
   accentColor,
   onPress,
 }: {
-  label: string;
-  active: boolean;
+  task: TaskInstance;
+  category?: Category;
   accentColor: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const meta = formatAgendaTime(task.dueTime);
+  const railColor = category?.color ?? accentColor;
+  const iconColor = task.priority === 'high' ? '#FFB6AB' : task.priority === 'low' ? '#9DEEFF' : '#F6D165';
+
   return (
     <Pressable
       onPress={onPress}
       style={[
-        styles.filterChip,
-        { borderColor: active ? accentColor : COLORS.border, backgroundColor: active ? accentColor : COLORS.card },
+        styles.taskCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderLeftColor: railColor,
+        },
       ]}
     >
-      <Text style={[styles.filterChipLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>
+      <View style={[styles.taskIconWrap, { backgroundColor: colors.input }]}>
+        <MaterialCommunityIcons
+          name={task.priority === 'high' ? 'flag-variant-outline' : task.seriesId ? 'creation-outline' : 'star-four-points-outline'}
+          size={20}
+          color={iconColor}
+        />
+      </View>
+
+      <View style={styles.taskTextWrap}>
+        <Text style={[styles.taskTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+          {task.title}
+        </Text>
+        <Text style={[styles.taskBody, { color: colors.textSecondary }]} numberOfLines={2}>
+          {task.description || category?.name || 'Task'}
+        </Text>
+      </View>
+
+      <View style={styles.timeWrap}>
+        <Text style={[styles.timeValue, { color: '#A6EFFF' }]}>{meta.time}</Text>
+        <Text style={[styles.timeValue, { color: '#A6EFFF' }]}>{meta.period}</Text>
+        <View style={[styles.timeDot, { backgroundColor: colors.textTertiary }]} />
+      </View>
     </Pressable>
   );
 }
 
+function formatAgendaTime(dueTime: string | null) {
+  if (!dueTime) {
+    return { time: '--:--', period: '' };
+  }
+
+  const parsed = parse(dueTime, 'HH:mm', new Date());
+  return {
+    time: format(parsed, 'hh-mm'),
+    period: format(parsed, 'a'),
+  };
+}
+
 const styles = StyleSheet.create({
-  screenContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-    gap: 6,
+  content: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 118,
+    gap: 18,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
+    gap: 8,
   },
-  title: {
-    color: COLORS.textPrimary,
-    fontSize: 18,
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.8,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  monthTitle: {
+    fontSize: 28,
+    lineHeight: 28,
     fontWeight: '800',
   },
-  monthNav: {
-    color: COLORS.textSecondary,
-    fontWeight: '700',
-    fontSize: 13,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  calendarSection: {
-    marginBottom: 2,
-  },
-  weekDayLabels: {
+  arrowRow: {
     flexDirection: 'row',
-    marginBottom: 2,
+    gap: 14,
   },
-  weekDayLabel: {
+  arrowButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarWrap: {
+    gap: 14,
+  },
+  weekHeader: {
+    flexDirection: 'row',
+  },
+  weekLabel: {
     flex: 1,
     textAlign: 'center',
-    color: COLORS.textTertiary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '600',
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    rowGap: 12,
   },
-  cell: {
-    width: '13.8%',
-    height: 36,
-    borderRadius: 6,
+  dayCell: {
+    width: '14.285%',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dayBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
   },
-  cellText: {
-    color: COLORS.textPrimary,
-    fontSize: 12,
+  dayNumber: {
+    fontSize: 16,
     fontWeight: '600',
+  },
+  dotRow: {
+    minHeight: 6,
+    flexDirection: 'row',
+    gap: 3,
+    alignItems: 'center',
+  },
+  dotSpacer: {
+    minHeight: 6,
   },
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 2,
   },
-  filterSection: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
   },
-  filterLabel: {
-    color: COLORS.textTertiary,
-    fontSize: 12,
-    fontWeight: '600',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
   },
-  filterScroll: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingRight: 16,
-  },
-  filterChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  pendingBadge: {
     borderRadius: 999,
     borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  filterChipLabel: {
-    fontWeight: '700',
-    fontSize: 12,
+  pendingText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
-  sheet: {
+  list: {
+    gap: 14,
+  },
+  taskCard: {
+    minHeight: 92,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  taskIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  taskTextWrap: {
     flex: 1,
-    marginTop: 4,
+    gap: 4,
   },
-  sheetTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
+  taskTitle: {
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 6,
   },
-  taskList: {
+  taskBody: {
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  timeWrap: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  timeValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 12,
+  },
+  timeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginTop: 3,
+  },
+  emptyCard: {
+    borderRadius: 26,
+    borderWidth: 1,
+    padding: 18,
     gap: 6,
   },
-  empty: {
-    color: COLORS.textSecondary,
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyBody: {
     fontSize: 13,
-    paddingVertical: 8,
+    lineHeight: 18,
   },
 });

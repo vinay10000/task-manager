@@ -2,9 +2,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
-import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { ActivityHeatmapScreen } from '../screens/ActivityHeatmapScreen';
 import { AllTasksScreen } from '../screens/AllTasksScreen';
 import { CategoryManagerScreen } from '../screens/CategoryManagerScreen';
@@ -21,25 +23,47 @@ const Stack = createNativeStackNavigator();
 
 function Tabs() {
   const { settings } = useAppState();
+  const colors = useThemeColors();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: COLORS.background,
-          borderTopColor: COLORS.border,
+          position: 'absolute',
+          left: 28,
+          right: 28,
+          bottom: 18,
+          height: 64,
+          borderRadius: 32,
+          borderTopWidth: 0,
+          backgroundColor: '#202020',
+          shadowColor: '#000000',
+          shadowOpacity: 0.35,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 12,
         },
-        tabBarActiveTintColor: settings.accentColor,
-        tabBarInactiveTintColor: COLORS.textTertiary,
-        tabBarIcon: ({ color, size }) => {
+        tabBarItemStyle: {
+          marginVertical: 8,
+        },
+        tabBarActiveTintColor: colors.background,
+        tabBarInactiveTintColor: '#6D6D71',
+        tabBarIcon: ({ color, size, focused }) => {
           const iconMap: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
             Today: 'calendar-today',
             Weekly: 'calendar-week',
             Monthly: 'calendar-month',
             All: 'format-list-bulleted',
           };
-          return <MaterialCommunityIcons name={iconMap[route.name]} color={color} size={size} />;
+
+          return (
+            <TabIconShell active={focused} accentColor={settings.accentColor}>
+              <MaterialCommunityIcons name={iconMap[route.name]} color={color} size={size} />
+            </TabIconShell>
+          );
         },
       })}
     >
@@ -51,8 +75,43 @@ function Tabs() {
   );
 }
 
+function TabIconShell({
+  active,
+  accentColor,
+  children,
+}: {
+  active: boolean;
+  accentColor: string;
+  children: ReactNode;
+}) {
+  return (
+    <View
+      style={[
+        {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        active && {
+          backgroundColor: accentColor,
+          shadowColor: accentColor,
+          shadowOpacity: 0.42,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: 10,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
 export function AppNavigator() {
   const { settings, hydrated } = useAppState();
+  const colors = useThemeColors();
 
   if (!hydrated) {
     return null;
@@ -64,10 +123,10 @@ export function AppNavigator() {
         ...DefaultTheme,
         colors: {
           ...DefaultTheme.colors,
-          background: COLORS.background,
-          card: COLORS.background,
-          border: COLORS.border,
-          text: COLORS.textPrimary,
+          background: colors.background,
+          card: colors.background,
+          border: colors.border,
+          text: colors.textPrimary,
           primary: settings.accentColor,
         },
       }}
@@ -77,16 +136,21 @@ export function AppNavigator() {
       ) : (
         <Stack.Navigator
           screenOptions={{
-            headerStyle: { backgroundColor: COLORS.background },
-            headerTintColor: COLORS.textPrimary,
-            contentStyle: { backgroundColor: COLORS.background },
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+            contentStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
           <Stack.Screen
             name="TaskEditor"
             component={TaskEditorScreen}
-            options={{ presentation: 'modal', title: 'Task' }}
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
           />
           <Stack.Screen name="TaskDetail" component={TaskDetailScreen} options={{ title: 'Task Detail' }} />
           <Stack.Screen

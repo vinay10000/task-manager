@@ -45,6 +45,8 @@ interface AppContextValue extends PersistedAppData {
   notificationGranted: boolean;
   finishOnboarding: (accentValue: string) => void;
   setAccentColor: (accentValue: string) => void;
+  setDisplayMode: (displayMode: PersistedAppData['settings']['displayMode']) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
   requestNotifications: () => Promise<boolean>;
   addCategory: (name: string, color: string) => void;
   updateCategory: (categoryId: string, patch: Partial<Category>) => void;
@@ -189,6 +191,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...current.settings,
         accentColor: accent.value,
         accentName: accent.name,
+      },
+    }));
+  };
+
+  const setDisplayMode = (displayMode: PersistedAppData['settings']['displayMode']) => {
+    setData((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        displayMode,
+      },
+    }));
+  };
+
+  const setHapticsEnabled = (enabled: boolean) => {
+    setData((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        hapticsEnabled: enabled,
       },
     }));
   };
@@ -627,6 +649,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notificationGranted,
         finishOnboarding,
         setAccentColor,
+        setDisplayMode,
+        setHapticsEnabled,
         requestNotifications,
         addCategory,
         updateCategory,

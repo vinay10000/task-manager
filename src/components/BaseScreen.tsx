@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { COLORS } from '../constants/theme';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export function BaseScreen({
   children,
@@ -15,6 +15,7 @@ export function BaseScreen({
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
 }) {
+  const colors = useThemeColors();
   const body = scroll ? (
     <ScrollView contentContainerStyle={[styles.content, contentContainerStyle]}>{children}</ScrollView>
   ) : (
@@ -22,7 +23,7 @@ export function BaseScreen({
   );
 
   return (
-    <SafeAreaView style={[styles.screen, style]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }, style]} edges={['top', 'left', 'right']}>
       {body}
     </SafeAreaView>
   );
@@ -31,7 +32,6 @@ export function BaseScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   content: {
     flexGrow: 1,

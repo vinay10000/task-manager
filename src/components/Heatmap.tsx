@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '../constants/theme';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { ActivityDay } from '../types/models';
 
 function intensityColor(accentColor: string, score: number) {
@@ -26,6 +27,7 @@ export function Heatmap({
   accentColor: string;
   activityLog: ActivityDay[];
 }) {
+  const colors = useThemeColors();
   const byDate = activityLog.reduce<Record<string, number>>((acc, entry) => {
     const score = (entry.wasCompleted ? 2 : 0) + Math.min(entry.subtasksCompleted, 2);
     acc[entry.date] = (acc[entry.date] ?? 0) + score;
@@ -43,10 +45,13 @@ export function Heatmap({
     <View style={styles.wrapper}>
       <View style={styles.grid}>
         {last28Days.map((cell) => (
-          <View key={cell.key} style={[styles.cell, { backgroundColor: intensityColor(accentColor, cell.score) }]} />
+          <View
+            key={cell.key}
+            style={[styles.cell, { backgroundColor: cell.score <= 0 ? colors.input : intensityColor(accentColor, cell.score) }]}
+          />
         ))}
       </View>
-      <Text style={styles.caption}>Last 28 days of activity</Text>
+      <Text style={[styles.caption, { color: colors.textSecondary }]}>Last 28 days of activity</Text>
     </View>
   );
 }
@@ -66,7 +71,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   caption: {
-    color: COLORS.textSecondary,
     fontSize: 12,
   },
 });

@@ -36,6 +36,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# generated native folders (iOS often local-only)
 /ios
-/android
+
+# Android: commit project; ignore build outputs and signing secrets
+android/**/build/
+android/.gradle/
+android/.cxx/
+android/local.properties
+android/keystore.properties
+android/**/*.keystore
+android/**/*.jks

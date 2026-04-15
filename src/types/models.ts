@@ -3,6 +3,7 @@ export type ReminderOffset = 'exact' | '5min' | '15min' | '1hr' | null;
 export type RecurrenceRule = 'daily' | 'weekly' | 'monthly' | 'customDays';
 export type TaskStatusFilter = 'all' | 'active' | 'completed';
 export type TaskSort = 'dueDate' | 'priority' | 'createdAt' | 'alphabetical' | 'custom';
+export type DisplayMode = 'oled' | 'black';
 
 export interface Category {
   id: string;
@@ -74,6 +75,8 @@ export interface TaskInstance {
 export interface AppSettings {
   accentColor: string;
   accentName: string;
+  displayMode: DisplayMode;
+  hapticsEnabled: boolean;
   notificationPermissionAsked: boolean;
   onboardingDone: boolean;
   timezone: string;

@@ -6,10 +6,12 @@ import { BaseScreen } from '../components/BaseScreen';
 import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
 import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { getWeeklyDates, sortTasks } from '../utils/tasks';
 
 export function WeeklyScreen({ navigation }: any) {
   const { tasks, categories, settings, deleteTask, toggleSubtask } = useAppState();
+  const colors = useThemeColors();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [categoryId, setCategoryId] = useState('all');
   const visibleCategories = useMemo(
@@ -29,7 +31,7 @@ export function WeeklyScreen({ navigation }: any) {
 
   return (
     <BaseScreen scroll contentContainerStyle={styles.screenContent}>
-      <Text style={styles.title}>Weekly</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Weekly</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayStrip}>
         {dates.map((date) => {
           const key = format(date, 'yyyy-MM-dd');
@@ -40,20 +42,20 @@ export function WeeklyScreen({ navigation }: any) {
               key={key}
               style={[
                 styles.dayChip,
-                { borderColor: active ? settings.accentColor : COLORS.border, backgroundColor: active ? settings.accentColor : COLORS.card },
+                { borderColor: active ? settings.accentColor : colors.border, backgroundColor: active ? settings.accentColor : colors.card },
               ]}
               onPress={() => setSelectedDate(key)}
             >
-              <Text style={[styles.dayLabel, { color: active ? COLORS.background : COLORS.textPrimary }]}>{format(date, 'EEE')}</Text>
-              <Text style={[styles.dayNumber, { color: active ? COLORS.background : COLORS.textSecondary }]}>{format(date, 'd')}</Text>
-              {count > 0 && <View style={[styles.countDot, { backgroundColor: active ? COLORS.background : settings.accentColor }]} />}
+              <Text style={[styles.dayLabel, { color: active ? colors.background : colors.textPrimary }]}>{format(date, 'EEE')}</Text>
+              <Text style={[styles.dayNumber, { color: active ? colors.background : colors.textSecondary }]}>{format(date, 'd')}</Text>
+              {count > 0 && <View style={[styles.countDot, { backgroundColor: active ? colors.background : settings.accentColor }]} />}
             </Pressable>
           );
         })}
       </ScrollView>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>Filter:</Text>
+        <Text style={[styles.filterLabel, { color: colors.textTertiary }]}>Filter:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterStrip}>
           <CategoryChip label="All" active={categoryId === 'all'} accentColor={settings.accentColor} onPress={() => setCategoryId('all')} />
           {visibleCategories.map((category) => (
@@ -70,7 +72,7 @@ export function WeeklyScreen({ navigation }: any) {
 
       <View style={styles.list}>
         {selectedTasks.length === 0 ? (
-          <Text style={styles.empty}>No tasks for {format(new Date(selectedDate), 'MMM d')}.</Text>
+          <Text style={[styles.empty, { color: colors.textSecondary }]}>No tasks for {format(new Date(selectedDate), 'MMM d')}.</Text>
         ) : (
           selectedTasks.map((task) => (
             <SwipeableTaskCard
@@ -100,15 +102,16 @@ function CategoryChip({
   accentColor: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.filterChip,
-        { borderColor: active ? accentColor : COLORS.border, backgroundColor: active ? accentColor : COLORS.card },
+        { borderColor: active ? accentColor : colors.border, backgroundColor: active ? accentColor : colors.card },
       ]}
     >
-      <Text style={[styles.filterLabelText, { color: active ? COLORS.background : COLORS.textPrimary }]}>{label}</Text>
+      <Text style={[styles.filterLabelText, { color: active ? colors.background : colors.textPrimary }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -117,11 +120,10 @@ const styles = StyleSheet.create({
   screenContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 10,
+    paddingBottom: 118,
     flexGrow: 0,
   },
   title: {
-    color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 8,
@@ -159,7 +161,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   empty: {
-    color: COLORS.textSecondary,
     fontSize: 13,
     paddingVertical: 8,
   },
@@ -170,7 +171,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterLabel: {
-    color: COLORS.textTertiary,
     fontSize: 12,
     fontWeight: '600',
   },

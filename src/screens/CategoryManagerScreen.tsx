@@ -4,9 +4,11 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BaseScreen } from '../components/BaseScreen';
 import { ACCENT_OPTIONS, COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export function CategoryManagerScreen() {
   const { categories, tasks, addCategory, updateCategory, deleteCategory } = useAppState();
+  const colors = useThemeColors();
   const [name, setName] = useState('');
   const [color, setColor] = useState<string>(ACCENT_OPTIONS[0].value);
 
@@ -23,12 +25,12 @@ export function CategoryManagerScreen() {
       {visibleCategories.map((category) => {
         const count = tasks.filter((task) => task.categoryId === category.id).length;
         return (
-          <View key={category.id} style={styles.card}>
+          <View key={category.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.headerRow}>
               <View style={[styles.dot, { backgroundColor: category.color }]} />
               <View style={styles.textWrap}>
-                <Text style={styles.name}>{category.name}</Text>
-                <Text style={styles.count}>{count} task{count === 1 ? '' : 's'}</Text>
+                <Text style={[styles.name, { color: colors.textPrimary }]}>{category.name}</Text>
+                <Text style={[styles.count, { color: colors.textSecondary }]}>{count} task{count === 1 ? '' : 's'}</Text>
               </View>
               {category.systemType === 'uncategorized' ? null : (
                 <Pressable onPress={() => deleteCategory(category.id)}>
@@ -41,9 +43,9 @@ export function CategoryManagerScreen() {
                 <TextInput
                   value={category.name}
                   onChangeText={(value) => updateCategory(category.id, { name: value })}
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.textPrimary }]}
                   placeholder="Category name"
-                  placeholderTextColor={COLORS.textTertiary}
+                  placeholderTextColor={colors.textTertiary}
                 />
                 <View style={styles.swatches}>
                   {ACCENT_OPTIONS.map((option) => (
@@ -54,6 +56,7 @@ export function CategoryManagerScreen() {
                         styles.swatch,
                         { backgroundColor: option.value },
                         category.color === option.value && styles.swatchSelected,
+                        category.color === option.value && { borderColor: colors.textPrimary },
                       ]}
                     />
                   ))}
@@ -64,14 +67,14 @@ export function CategoryManagerScreen() {
         );
       })}
 
-      <View style={styles.card}>
-        <Text style={styles.name}>Add Category</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.name, { color: colors.textPrimary }]}>Add Category</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="New category name"
-          placeholderTextColor={COLORS.textTertiary}
-          style={styles.input}
+          placeholderTextColor={colors.textTertiary}
+          style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.textPrimary }]}
         />
         <View style={styles.swatches}>
           {ACCENT_OPTIONS.map((option) => (
@@ -82,6 +85,7 @@ export function CategoryManagerScreen() {
                 styles.swatch,
                 { backgroundColor: option.value },
                 color === option.value && styles.swatchSelected,
+                color === option.value && { borderColor: colors.textPrimary },
               ]}
             />
           ))}
@@ -93,7 +97,7 @@ export function CategoryManagerScreen() {
             setName('');
           }}
         >
-          <Text style={styles.addButtonLabel}>Add Category</Text>
+          <Text style={[styles.addButtonLabel, { color: colors.background }]}>Add Category</Text>
         </Pressable>
       </View>
     </BaseScreen>
@@ -102,10 +106,8 @@ export function CategoryManagerScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
     padding: 18,
     gap: 14,
   },
@@ -124,12 +126,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   name: {
-    color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: '700',
   },
   count: {
-    color: COLORS.textSecondary,
     fontSize: 13,
   },
   delete: {
@@ -140,11 +140,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   input: {
-    backgroundColor: COLORS.input,
-    borderColor: COLORS.border,
     borderWidth: 1,
     borderRadius: 14,
-    color: COLORS.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flex: 1,
@@ -161,7 +158,6 @@ const styles = StyleSheet.create({
   },
   swatchSelected: {
     borderWidth: 2,
-    borderColor: COLORS.textPrimary,
   },
   addButton: {
     height: 50,
@@ -170,7 +166,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonLabel: {
-    color: COLORS.background,
     fontWeight: '800',
   },
 });

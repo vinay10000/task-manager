@@ -28,6 +28,8 @@ export function getDefaultSettings(): AppSettings {
   return {
     accentColor: accent.value,
     accentName: accent.name,
+    displayMode: 'oled',
+    hapticsEnabled: true,
     notificationPermissionAsked: false,
     onboardingDone: false,
     timezone: getTimezone(),
@@ -35,7 +37,7 @@ export function getDefaultSettings(): AppSettings {
 }
 
 export function createDefaultCategories(): Category[] {
-  const palette = ['#FF6B8A', '#06D6A0', '#FFB627', '#A78BFA', '#2DD4BF', '#FBBF77', '#BFFF00', '#FF7F50'];
+  const palette = ACCENT_OPTIONS.map((option) => option.value);
   const colors = [...palette]
     .sort(() => Math.random() - 0.5)
     .slice(0, DEFAULT_CATEGORY_NAMES.length);

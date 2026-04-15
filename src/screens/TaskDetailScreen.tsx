@@ -8,6 +8,7 @@ import { BaseScreen } from '../components/BaseScreen';
 import { Heatmap } from '../components/Heatmap';
 import { COLORS } from '../constants/theme';
 import { useAppState } from '../hooks/useAppState';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { formatDateTimeLabel } from '../utils/tasks';
 
 export function TaskDetailScreen({ route, navigation }: any) {
@@ -15,6 +16,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { tasks, categories, settings, completeTask, toggleSubtask, reorderSubtasks, deleteTask, snoozeTask } =
     useAppState();
+  const colors = useThemeColors();
   const task = tasks.find((item) => item.id === taskId);
 
   useLayoutEffect(() => {
@@ -30,16 +32,16 @@ export function TaskDetailScreen({ route, navigation }: any) {
           style={styles.headerOverflow}
           accessibilityLabel="Task actions"
         >
-          <MaterialCommunityIcons name="dots-vertical" size={24} color={COLORS.textPrimary} />
+          <MaterialCommunityIcons name="dots-vertical" size={24} color={colors.textPrimary} />
         </Pressable>
       ),
     });
-  }, [navigation, task]);
+  }, [colors.textPrimary, navigation, task]);
 
   if (!task) {
     return (
       <BaseScreen>
-        <Text style={styles.empty}>Task not found.</Text>
+        <Text style={[styles.empty, { color: colors.textSecondary }]}>Task not found.</Text>
       </BaseScreen>
     );
   }
@@ -56,10 +58,11 @@ export function TaskDetailScreen({ route, navigation }: any) {
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={closeMenu}>
         <View style={styles.menuOverlay}>
           <Pressable style={styles.menuBackdrop} onPress={closeMenu} accessibilityLabel="Close menu" />
-          <View style={styles.menuSheet}>
-            <Text style={styles.menuTitle}>Actions</Text>
+          <View style={[styles.menuSheet, { backgroundColor: colors.modal, borderColor: colors.border }]}>
+            <Text style={[styles.menuTitle, { color: colors.textSecondary }]}>Actions</Text>
             <MenuRow
               label="Edit this task"
+              colors={colors}
               onPress={() => {
                 closeMenu();
                 navigation.navigate('TaskEditor', { taskId: task.id });
@@ -68,6 +71,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
             {task.seriesId ? (
               <MenuRow
                 label="Edit this and future tasks"
+                colors={colors}
                 onPress={() => {
                   closeMenu();
                   navigation.navigate('TaskEditor', { taskId: task.id, scope: 'future' });
@@ -76,6 +80,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
             ) : null}
             <MenuRow
               label="Activity heatmap"
+              colors={colors}
               onPress={() => {
                 closeMenu();
                 navigation.navigate('ActivityHeatmap', { taskId: task.id });
@@ -84,6 +89,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
             {task.hasReminder && !task.completed ? (
               <MenuRow
                 label="Snooze 10 minutes"
+                colors={colors}
                 onPress={() => {
                   closeMenu();
                   snoozeTask(task.id);
@@ -93,6 +99,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
             <MenuRow
               label={task.seriesId ? 'Delete this task' : 'Delete task'}
               danger
+              colors={colors}
               onPress={() => {
                 closeMenu();
                 deleteTask(task.id);
@@ -103,6 +110,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
               <MenuRow
                 label="Delete this and future tasks"
                 danger
+                colors={colors}
                 onPress={() => {
                   closeMenu();
                   deleteTask(task.id, 'future');
@@ -111,7 +119,7 @@ export function TaskDetailScreen({ route, navigation }: any) {
               />
             ) : null}
             <Pressable style={styles.menuCancel} onPress={closeMenu}>
-              <Text style={styles.menuCancelLabel}>Cancel</Text>
+              <Text style={[styles.menuCancelLabel, { color: colors.textSecondary }]}>Cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -119,40 +127,64 @@ export function TaskDetailScreen({ route, navigation }: any) {
 
       <View style={styles.hero}>
         <Pressable
-          style={[styles.heroCheck, task.completed && { backgroundColor: settings.accentColor, borderColor: settings.accentColor }]}
+          style={[
+            styles.heroCheck,
+            { borderColor: task.completed ? settings.accentColor : colors.border },
+            task.completed && { backgroundColor: settings.accentColor, borderColor: settings.accentColor },
+          ]}
           onPress={() => completeTask(task.id)}
         >
-          <Text style={[styles.heroCheckLabel, { color: task.completed ? COLORS.background : COLORS.textPrimary }]}>
+          <Text style={[styles.heroCheckLabel, { color: task.completed ? colors.background : colors.textPrimary }]}>
             {task.completed ? 'Done' : 'Open'}
           </Text>
         </Pressable>
-        <Text style={styles.title}>{task.title}</Text>
-        <Text style={styles.description}>{task.description || 'No description added yet.'}</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{task.title}</Text>
+        <Text style={[styles.description, { color: colors.textSecondary }]}>{task.description || 'No description added yet.'}</Text>
       </View>
 
-      <View style={styles.metaCard}>
-        <Text style={styles.metaLine}>Priority: {task.priority}</Text>
-        <Text style={styles.metaLine}>Category: {category?.name ?? 'Uncategorized'}</Text>
-        <Text style={styles.metaLine}>Due: {formatDateTimeLabel(task.dueDate, task.dueTime)}</Text>
-        <Text style={styles.metaLine}>Tags: {task.tags.length ? task.tags.join(', ') : 'No tags'}</Text>
-        <Text style={styles.metaLine}>{task.seriesId ? 'Repeats from a recurring series' : 'One-off task'}</Text>
+      <View style={[styles.metaCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.metaLine, { color: colors.textSecondary }]}>Priority: {task.priority}</Text>
+        <Text style={[styles.metaLine, { color: colors.textSecondary }]}>Category: {category?.name ?? 'Uncategorized'}</Text>
+        <Text style={[styles.metaLine, { color: colors.textSecondary }]}>Due: {formatDateTimeLabel(task.dueDate, task.dueTime)}</Text>
+        <Text style={[styles.metaLine, { color: colors.textSecondary }]}>Tags: {task.tags.length ? task.tags.join(', ') : 'No tags'}</Text>
+        <Text style={[styles.metaLine, { color: colors.textSecondary }]}>{task.seriesId ? 'Repeats from a recurring series' : 'One-off task'}</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Subtasks</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Subtasks</Text>
         <DraggableFlatList
           data={[...task.subtasks].sort((a, b) => a.sortOrder - b.sortOrder)}
           keyExtractor={(item) => item.id}
           onDragEnd={({ data }) => reorderSubtasks(task.id, data.map((item) => item.id))}
           onDragBegin={() => {
-            void Haptics.selectionAsync();
+            if (settings.hapticsEnabled) {
+              void Haptics.selectionAsync();
+            }
           }}
           scrollEnabled={false}
           renderItem={({ item, drag }) => (
             <ScaleDecorator>
-              <Pressable style={styles.subtaskRow} onLongPress={drag} onPress={() => toggleSubtask(task.id, item.id)}>
-                <View style={[styles.subtaskCheck, item.completed && { backgroundColor: settings.accentColor }]} />
-                <Text style={[styles.subtaskText, item.completed && styles.strike]}>{item.title}</Text>
+              <Pressable
+                style={[styles.subtaskRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onLongPress={drag}
+                onPress={() => toggleSubtask(task.id, item.id)}
+              >
+                <View
+                  style={[
+                    styles.subtaskCheck,
+                    { backgroundColor: item.completed ? settings.accentColor : colors.input, borderColor: colors.border },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.subtaskText,
+                    { color: colors.textPrimary },
+                    item.completed && styles.strike,
+                    item.completed && { color: colors.textSecondary },
+                  ]}
+                >
+                  {item.title}
+                </Text>
               </Pressable>
             </ScaleDecorator>
           )}
@@ -160,17 +192,27 @@ export function TaskDetailScreen({ route, navigation }: any) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Activity Preview</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Activity Preview</Text>
         <Heatmap accentColor={settings.accentColor} activityLog={previewActivity} />
       </View>
     </BaseScreen>
   );
 }
 
-function MenuRow({ label, onPress, danger }: { label: string; onPress: () => void; danger?: boolean }) {
+function MenuRow({
+  label,
+  onPress,
+  danger,
+  colors,
+}: {
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  colors: { textPrimary: string; border: string };
+}) {
   return (
-    <Pressable style={styles.menuRow} onPress={onPress}>
-      <Text style={[styles.menuRowLabel, danger && styles.menuRowDanger]}>{label}</Text>
+    <Pressable style={[styles.menuRow, { borderBottomColor: colors.border }]} onPress={onPress}>
+      <Text style={[styles.menuRowLabel, { color: colors.textPrimary }, danger && styles.menuRowDanger]}>{label}</Text>
     </Pressable>
   );
 }
@@ -184,14 +226,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   empty: {
-    color: COLORS.textSecondary,
   },
   hero: {
     gap: 12,
   },
   heroCheck: {
     borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -201,30 +241,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   title: {
-    color: COLORS.textPrimary,
     fontSize: 30,
     fontWeight: '800',
   },
   description: {
-    color: COLORS.textSecondary,
     lineHeight: 22,
   },
   metaCard: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: 18,
     padding: 16,
     gap: 10,
   },
   metaLine: {
-    color: COLORS.textSecondary,
   },
   section: {
     gap: 12,
   },
   sectionTitle: {
-    color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -232,27 +266,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
     marginBottom: 10,
   },
   subtaskCheck: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.input,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   subtaskText: {
-    color: COLORS.textPrimary,
     flex: 1,
   },
   strike: {
-    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
   menuOverlay: {
@@ -264,18 +292,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   menuSheet: {
-    backgroundColor: COLORS.modal,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 28,
     borderWidth: 1,
-    borderColor: COLORS.border,
     gap: 4,
   },
   menuTitle: {
-    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -285,10 +310,8 @@ const styles = StyleSheet.create({
   menuRow: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
   menuRowLabel: {
-    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -301,7 +324,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuCancelLabel: {
-    color: COLORS.textSecondary,
     fontWeight: '700',
     fontSize: 16,
   },
